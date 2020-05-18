@@ -337,7 +337,8 @@ class AxesLineSelector:
         else:
             value = tuple([value] * len(self.line_clipboard))
         for ln, val in zip(self.line_clipboard, value):
-            setattr(ln, f'_{attr}', val)
+            setter = getattr(ln, f'set_{attr}')
+            setter(val)
         self._refresh_plot()
 
     def getattr_selection(self, attr):
@@ -355,7 +356,11 @@ class AxesLineSelector:
         assert attr in self.LINE_PROPERTIES, \
             f'{attr} is an unsupported line-property. Must be ' \
             f'one of {self.LINE_PROPERTIES}'
-        return tuple([getattr(ln, f'_{attr}') for ln in self.line_clipboard])
+        retval = []
+        for ln in self.line_clipboard:
+            getter = getattr(ln, f'get_{attr}')
+            retval.append(getter())
+        return tuple(retval)
 
     def _disconnect_current_callback(self):
         if self.cid is not None:
