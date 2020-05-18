@@ -1,0 +1,23 @@
+# Python specific
+__pycache__/
+*.py[cod]
+*.egg-info
+*.so
+*.o
+*.pyc
+
+build/
+develop-eggs/
+dist/
+eggs/
+
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE specific
+.vscode
+.idea
+
+# OS Specific
+._.DS_Store
+.DS_Store
