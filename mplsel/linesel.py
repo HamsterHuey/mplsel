@@ -68,6 +68,7 @@ class AxesLineSelector:
             ln.set_picker(self.picker_arg)
         self.cid = \
             self.fig.canvas.mpl_connect('pick_event', self._delete_callback)
+        return self
 
     def delete_all_lines(self):
         """Delete all the lines in the axes. They are all stored in
@@ -76,7 +77,7 @@ class AxesLineSelector:
         while len(self.ax.lines) > 0:
             ln = self.ax.lines[-1]  # Delete last line
             self._delete_line(ln)
-        # self._refresh_plot()  # Update plot with deletion
+        return self
 
     def delete_lines_by_inds(self, *inds):
         """
@@ -121,6 +122,7 @@ class AxesLineSelector:
                 print(f'Deleted line: {l}')
         self.ax.lines = new_lines
         self._refresh_plot()
+        return self
 
     def _delete_line(self, line):
         if line in self.ax.lines:
@@ -144,6 +146,7 @@ class AxesLineSelector:
             print('No line deletions to undo!')
         self.ax.lines.append(self.deleted_lines.pop())
         self._refresh_plot()  # Update plot with line
+        return self
 
     def undo_all_delete(self):
         """Restore all deleted lines that were stored in the ``self.deleted_lines``
@@ -151,6 +154,7 @@ class AxesLineSelector:
         ordering. See :meth:`~AxesLineSelector.reorder_lines` method"""
         for i in range(len(self.deleted_lines)):
             self.undo_last_delete()
+        return self
 
     def reorder_lines(self, order):
         """
@@ -188,6 +192,7 @@ class AxesLineSelector:
             new_lines[new_ind] = self.ax.lines[old_ind]
         self.ax.lines = new_lines
         self._refresh_plot()
+        return self
 
     def interactive_select(self):
         """
@@ -210,11 +215,13 @@ class AxesLineSelector:
             ln.set_picker(self.picker_arg)
         self.cid = \
             self.fig.canvas.mpl_connect('pick_event', self._select_callback)
+        return self
 
     def select_all_lines(self):
         """Select all lines in ``self.ax`` and store in :attr:`line_clipboards`"""
         for ln in self.ax.lines:
             self._add_line_to_clipboard(ln)
+        return self
 
     def select_lines_by_inds(self, *inds):
         """
@@ -256,6 +263,7 @@ class AxesLineSelector:
             raise ValueError('At least one or more indices should be provided')
         for ind in inds:
             self._add_line_to_clipboard(self.ax.lines[ind])
+        return self
 
     def _add_line_to_clipboard(self, line):
         if line not in self.line_clipboard:
@@ -275,10 +283,13 @@ class AxesLineSelector:
             print('No line selections to undo!')
         ln = self.line_clipboard.pop()
         print(f'Removed line: {ln} from clipboard')
+        return self
 
     def clear_clipboard(self):
         self.line_clipboard = []
+        return self
 
+    # TODO: Make this return a new AxesSelection object with pasted lines selected
     def paste_selection(self, ax):
         """
         Paste a copy of all lines in the internal :attr:`lines_clipboard`
@@ -306,14 +317,22 @@ class AxesLineSelector:
             >>> # Copy over 'Line-B' into new plot
             >>> sel.paste_selection(ax2)
         """
+        new_sel_line_clipboard = []
         for ln in self.line_clipboard:
             # Plot a new line2D with same x-y data as line in clipboard
             new_l = ax.plot(*ln.get_data())[0]
             # Copy over all relevant attributes from line in clipboard to new line
             for line_attr in self.LINE_PROPERTIES:
                 setattr(new_l, f'_{line_attr}', getattr(ln, f'_{line_attr}'))
+            new_sel_line_clipboard.append(new_l)
+
         # Update the axes being pasted into
         self._refresh_plot(ax)
+
+        # Return new selection for axes that was pasted into with pasted lines selected
+        new_sel = AxesLineSelector(ax=ax, picker_arg=self.picker_arg)
+        new_sel.line_clipboard = new_sel_line_clipboard
+        return new_sel
 
     def setattr_selection(self, attr, value):
         """
@@ -340,6 +359,7 @@ class AxesLineSelector:
             setter = getattr(ln, f'set_{attr}')
             setter(val)
         self._refresh_plot()
+        return self
 
     def getattr_selection(self, attr):
         """
@@ -371,6 +391,7 @@ class AxesLineSelector:
         """Detach registered callbacks for interactive plot selection/deletion
         from :attr:`ax`"""
         self._disconnect_current_callback()
+        return self
 
     def __del__(self):
         self._disconnect_current_callback()

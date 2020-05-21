@@ -38,7 +38,7 @@ sel
 
 # %% Programmatically select 'Line-1' and 'Line-4'
 sel.select_lines_by_inds(1, 4)
-# Introspect sel:
+# Output:
 #     AxesLineSelector (
 #         ax: <matplotlib.axes._subplots.AxesSubplot object at 0x7f3ffafc67d0>
 #         is_interactive: False
@@ -52,14 +52,22 @@ sel.select_lines_by_inds(1, 4)
 #     )
 
 # %% Modify selection attributes and update plot
-sel.setattr_selection('linestyle', ('-.', '--'))  # Apply different styles to each line
-sel.setattr_selection('linewidth', .5)  # Apply same width to all selected lines
+# Chained operation. 1st operation  applies different styles to each line
+sel.setattr_selection('linestyle', ('-.', '--')) \
+   .setattr_selection('linewidth', .5)  # Apply same width to all selected lines
 
 # %% Create new empty plot and copy over selected lines
 fig2, ax2 = plt.subplots()
 # Copy over the 2 selected lines with modified attributes into new plot
-sel.paste_selection(ax2)
+# and obtain a new selection for the 2nd figure with pasted lines already
+# in the selection clipboard for the new selection object
+sel2 = sel.paste_selection(ax2)
 ax2.legend()
+
+# Update the pasted lines in the 2nd figure
+sel2.setattr_selection('linestyle', '_') \
+    .setattr_selection('linewidth', 3)
+
 
 # %% Demo of other functionality
 # Delete 'Line-2', 'Line-3' from the original plot
