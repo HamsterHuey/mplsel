@@ -41,7 +41,7 @@ class AxesLineSelector:
         """Returns Figure instance that self.ax is bound to"""
         return self.ax.figure
 
-    def _refresh_plot(self, ax=None):
+    def redraw(self, ax=None):
         """Update legend if needed and redraw plot after any updates to it"""
         ax = self.ax if ax is None else ax
         if ax.legend_ is not None and ax.legend_.get_visible():
@@ -76,6 +76,15 @@ class AxesLineSelector:
         desired"""
         while len(self.ax.lines) > 0:
             ln = self.ax.lines[-1]  # Delete last line
+            self._delete_line(ln)
+        return self
+
+    def delete_selection(self):
+        """
+        Delete all lines in current selection and store in deletion buffer
+        """
+        while len(self.line_clipboard) > 0:
+            ln = self.line_clipboard.pop(0)  # Delete first line in selection
             self._delete_line(ln)
         return self
 
@@ -121,7 +130,7 @@ class AxesLineSelector:
                 self.deleted_lines.append(l)
                 print(f'Deleted line: {l}')
         self.ax.lines = new_lines
-        self._refresh_plot()
+        self.redraw()
         return self
 
     def _delete_line(self, line):
@@ -131,7 +140,7 @@ class AxesLineSelector:
             self.deleted_lines.append(line)
         else:
             print(f'Line: {line} was not in self.ax.lines. Skipped deletion')
-        self._refresh_plot()  # Update plot with deletion
+        self.redraw()  # Update plot with deletion
 
     def _delete_callback(self, event):
         """Matplotlib event callback to bind to Line2D Artists for interactive
@@ -145,7 +154,7 @@ class AxesLineSelector:
         if len(self.deleted_lines) == 0:
             print('No line deletions to undo!')
         self.ax.lines.append(self.deleted_lines.pop())
-        self._refresh_plot()  # Update plot with line
+        self.redraw()  # Update plot with line
         return self
 
     def undo_all_delete(self):
@@ -191,7 +200,7 @@ class AxesLineSelector:
         for old_ind, new_ind in enumerate(order):
             new_lines[new_ind] = self.ax.lines[old_ind]
         self.ax.lines = new_lines
-        self._refresh_plot()
+        self.redraw()
         return self
 
     def interactive_select(self):
@@ -221,6 +230,21 @@ class AxesLineSelector:
         """Select all lines in ``self.ax`` and store in :attr:`line_clipboards`"""
         for ln in self.ax.lines:
             self._add_line_to_clipboard(ln)
+        return self
+
+    def select_lines(self, sel_fn):
+        """
+        Select lines using provided selection function to the clipboard
+
+        Args:
+            sel_fn (Callable): Function signature is (line, i) where line is the
+                :class:`~matplotlib.Line2D` instance of the axes and ``i`` is
+                the index of the line in ``self.ax.lines``. ``sel_fn`` must
+                return ``True`` for lines to be selected and ``False`` otherwise
+        """
+        for i, ln in enumerate(self.ax.lines):
+            if sel_fn(ln, i):
+                self._add_line_to_clipboard(ln)
         return self
 
     def select_lines_by_inds(self, *inds):
@@ -327,7 +351,7 @@ class AxesLineSelector:
             new_sel_line_clipboard.append(new_l)
 
         # Update the axes being pasted into
-        self._refresh_plot(ax)
+        self.redraw(ax)
 
         # Return new selection for axes that was pasted into with pasted lines selected
         new_sel = AxesLineSelector(ax=ax, picker_arg=self.picker_arg)
@@ -358,7 +382,7 @@ class AxesLineSelector:
         for ln, val in zip(self.line_clipboard, value):
             setter = getattr(ln, f'set_{attr}')
             setter(val)
-        self._refresh_plot()
+        self.redraw()
         return self
 
     def getattr_selection(self, attr):
