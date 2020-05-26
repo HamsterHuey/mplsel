@@ -53,7 +53,10 @@ class AxesLineSelector:
         Bind callbacks to plot-window to enable interactive deletion by
         left-clicking on lines in the plot-window. All deleted lines are saved
         in the ``self.deleted_lines`` buffer so that deletion can be undone if
-        desired.
+        desired.'
+
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``) 
 
         Notes:
             - Make sure to call ``self.disable_interactive()`` when interactive
@@ -71,9 +74,15 @@ class AxesLineSelector:
         return self
 
     def delete_all_lines(self):
-        """Delete all the lines in the axes. They are all stored in
+        """
+        Delete all the lines in the axes. They are all stored in
         ``self.deleted_lines`` in case undoing of the deletion operation is
-        desired"""
+        desired
+
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``) with all
+                lines deleted and moved to the deletion buffer.
+        """
         while len(self.ax.lines) > 0:
             ln = self.ax.lines[-1]  # Delete last line
             self._delete_line(ln)
@@ -82,6 +91,10 @@ class AxesLineSelector:
     def delete_selection(self):
         """
         Delete all lines in current selection and store in deletion buffer
+
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``) with
+                selected lines deleted and moved to the deletion buffer.
         """
         while len(self.line_clipboard) > 0:
             ln = self.line_clipboard.pop(0)  # Delete first line in selection
@@ -96,6 +109,10 @@ class AxesLineSelector:
         Args:
             *inds (Iterable[int]): Iterable of integer indices for lines in
                 ``self.ax.lines`` to be deleted
+
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``) with
+                deleted lines added to the :attr:`deleted_lines` attribute.
 
         Note:
             The best way to determine indices for lines of interest is to rely
@@ -150,7 +167,12 @@ class AxesLineSelector:
         # self._refresh_plot()  # Update plot with deletion
 
     def undo_last_delete(self):
-        """Restore last deleted line back to the Axes"""
+        """
+        Restore last deleted line back to the Axes
+        
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``)
+        """
         if len(self.deleted_lines) == 0:
             print('No line deletions to undo!')
         self.ax.lines.append(self.deleted_lines.pop())
@@ -158,9 +180,14 @@ class AxesLineSelector:
         return self
 
     def undo_all_delete(self):
-        """Restore all deleted lines that were stored in the ``self.deleted_lines``
+        """
+        Restore all deleted lines that were stored in the ``self.deleted_lines``
         buffer. Note: Order of restored line-traces may differ from original
-        ordering. See :meth:`~AxesLineSelector.reorder_lines` method"""
+        ordering. See :meth:`~AxesLineSelector.reorder_lines` method
+        
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``)
+        """
         for i in range(len(self.deleted_lines)):
             self.undo_last_delete()
         return self
@@ -176,6 +203,9 @@ class AxesLineSelector:
                 ``set(range(len(ax.lines))) == set(order)``. i.e., all indices in
                 ``order`` must be unique and span the range 0 to
                 ``len(ax.lines) - 1``
+
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``)
 
         Example:
             >>> fig, ax = plt.subplots()
@@ -211,6 +241,9 @@ class AxesLineSelector:
         :meth:`setattr_selections`, :meth:`getattr_selections` and
         :meth:`paste_selection`
 
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``)
+
         Notes:
             - Make sure to call ``self.disable_interactive()`` when interactive
             selection mode is no longer desired.
@@ -227,7 +260,13 @@ class AxesLineSelector:
         return self
 
     def select_all_lines(self):
-        """Select all lines in ``self.ax`` and store in :attr:`line_clipboards`"""
+        """
+        Select all lines in ``self.ax`` and store in :attr:`line_clipboard`
+
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``) with
+                selected lines added to the :attr:`line_clipboard` attribute.
+        """
         for ln in self.ax.lines:
             self._add_line_to_clipboard(ln)
         return self
@@ -241,6 +280,10 @@ class AxesLineSelector:
                 :class:`~matplotlib.Line2D` instance of the axes and ``i`` is
                 the index of the line in ``self.ax.lines``. ``sel_fn`` must
                 return ``True`` for lines to be selected and ``False`` otherwise
+
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``) with
+                selected lines added to the ``line_clipboard`` attribute.
         """
         for i, ln in enumerate(self.ax.lines):
             if sel_fn(ln, i):
@@ -256,6 +299,10 @@ class AxesLineSelector:
                 selected and placed in internal :attr:`lines_clipboard`. Usually
                 best determined by examining output of the :meth:`__repr__`
                 method of this class as shown in the example below.
+
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``) with
+                selected lines added to the ``line_clipboard`` attribute.
 
         Example:
             >>> fig, ax = plt.subplots()
@@ -303,6 +350,12 @@ class AxesLineSelector:
         self._add_line_to_clipboard(sel_line)
 
     def undo_last_selection(self):
+        """
+        Removes most recent selection from ``self.line_clipboard``
+
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``)
+        """
         if len(self.line_clipboard) == 0:
             print('No line selections to undo!')
         ln = self.line_clipboard.pop()
@@ -324,6 +377,11 @@ class AxesLineSelector:
         Args:
             ax (matplotlib.pyplot.Axes): Axes instance into which the lines in
                 the selection clipboard are to be copied over.
+
+        Returns:
+            (AxesLineSelector): New selection instance linked to ``ax`` and
+                containing the pasted lines as the active selection in the
+                clipboard
 
         Example:
             >>> fig, ax = plt.subplots()
@@ -365,23 +423,37 @@ class AxesLineSelector:
 
         Args:
             attr (str): A supported line-property (see :attr:`LINE_PROPERTIES`)
-            value (tuple or Any): Either a single valid property value that is
-                assigned uniformly to all lines in the selection, or a tuple of
-                the same length as the current line-clipboard selection with valid
-                property values that are assigned to each line
+            value (tuple, or Callable or Any): Either a single valid property 
+                value that is assigned uniformly to all lines in the selection, 
+                or a tuple of the same length as the current line-clipboard 
+                selection with valid property values that are assigned to each 
+                line. or a function with call-signature ``(line, i)`` where line 
+                is the :class:`~matplotlib.Line2D` instance of the axes and ``i``
+                is the index of the line in ``self.line_clipboard``. This 
+                function must return a valid value to be set for the provided
+                attribute - ``attr``
+        
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``)
         """
         assert attr in self.LINE_PROPERTIES, \
             f'{attr} is an unsupported line-property. Must be ' \
             f'one of {self.LINE_PROPERTIES}'
+        
         if isinstance(value, tuple):
             assert len(value) == len(self.line_clipboard), \
                 f'Invalid number of values provided for ' \
                 f'{len(self.line_clipboard)} lines in clipboard'
+        elif callable(value):
+            value = tuple(
+                [value(ln, i) for i, ln in enumerate(self.line_clipboard)])
         else:
             value = tuple([value] * len(self.line_clipboard))
+        
         for ln, val in zip(self.line_clipboard, value):
             setter = getattr(ln, f'set_{attr}')
             setter(val)
+        
         self.redraw()
         return self
 
@@ -412,8 +484,13 @@ class AxesLineSelector:
             self.cid = None
 
     def disable_interactive(self):
-        """Detach registered callbacks for interactive plot selection/deletion
-        from :attr:`ax`"""
+        """
+        Detach registered callbacks for interactive plot selection/deletion
+        from :attr:`ax`
+        
+        Returns:
+            (AxesLineSelector): Current selection instance (``self``) 
+        """
         self._disconnect_current_callback()
         return self
 
