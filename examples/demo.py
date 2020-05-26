@@ -5,7 +5,7 @@ from mplsel import AxesLineSelector
 
 # %% Create a demo plot
 fig, ax = plt.subplots()
-for i in range(5):
+for i in range(8):
     ax.plot(range(10), i + np.random.rand(10,), label=f'Line-{i}')
 ax.legend()
 

@@ -543,9 +543,14 @@ class AxesLineSelector:
         self._disconnect_current_callback()
 
     def __repr__(self):
-        clipboard = pformat([f'{i}: {str(ln)}' for i, ln in enumerate(self.line_clipboard)]).replace('\n', '\n\t\t')
-        # deleted = pformat([str(ln) for ln in self.deleted_lines]).replace('\n', '\n\t\t')
-        lines = pformat([f'{i}: {str(ln)}' for i, ln in enumerate(self.ax.lines)]).replace('\n', '\n\t\t')
+        clipboard = pformat(
+            [f'{i}: {str(ln)}' for i, ln in enumerate(
+                self.line_clipboard)]).replace('\n', '\n\t\t')
+        # deleted = pformat(
+        #     [str(ln) for ln in self.deleted_lines]).replace('\n', '\n\t\t')
+        lines = pformat(
+            [f'{i}: {str(ln)}' for i, ln in enumerate(
+                self.ax.lines)]).replace('\n', '\n\t\t')
         return f"{self.__class__.__name__} (\n" \
                f"\tax: {self.ax.__repr__()}\n" \
                f"\tis_interactive: {self.cid is not None}\n" \
