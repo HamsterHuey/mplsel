@@ -1,5 +1,45 @@
-import matplotlib.pyplot as plt
+from collections import deque
 from pprint import pformat
+
+import matplotlib.pyplot as plt
+
+
+class SnapshotBuffer:
+    """
+    A simple class for storing snapshots of any items (list of Line2D
+    objects here) and rewinding snapshots if needed.
+
+    Args:
+        max_len (int, optional): Maximum length of the snapshot buffer.
+            Setting this to a large value may result in out-of-memory errors
+            if the items being snapshotted are large; Default is **25**
+    """
+    def __init__(self, max_len=25):
+        self.max_len = max_len
+        self.item_snapshots = deque(maxlen=max_len)
+
+    def snapshot(self, items):
+        """
+        Snapshot the provided ``items`` in the internal buffer
+
+        Args:
+            items (list or Any): Any object that supports a `.copy()` method.
+                Typically a list
+        """
+        self.item_snapshots.append(items.copy())
+
+    def rewind(self):
+        """
+        Rewind the buffer by one snapshot and return the items from the last
+        snapshot
+
+        Returns:
+            (Any): The items stored in the last snapshot
+        """
+        return self.item_snapshots.pop()
+
+    def __len__(self):
+        return len(self.item_snapshots)
 
 
 class AxesLineSelector:
@@ -26,7 +66,7 @@ class AxesLineSelector:
         'visible'}
 
     def __init__(self, ax=None, picker_arg=True):
-        self.deleted_lines = []
+        self.delete_buffer = SnapshotBuffer(max_len=25)
         self.line_clipboard = []
         self.cid = None  # Callback id for active callback bound to lines
         self.picker_arg = picker_arg
@@ -52,7 +92,7 @@ class AxesLineSelector:
         """
         Bind callbacks to plot-window to enable interactive deletion by
         left-clicking on lines in the plot-window. All deleted lines are saved
-        in the ``self.deleted_lines`` buffer so that deletion can be undone if
+        in the ``self.delete_buffer`` buffer so that deletions can be undone if
         desired.'
 
         Returns:
@@ -76,13 +116,14 @@ class AxesLineSelector:
     def delete_all_lines(self):
         """
         Delete all the lines in the axes. They are all stored in
-        ``self.deleted_lines`` in case undoing of the deletion operation is
+        ``self.delete_buffer`` in case undoing of the deletion operation is
         desired
 
         Returns:
             (AxesLineSelector): Current selection instance (``self``) with all
                 lines deleted and moved to the deletion buffer.
         """
+        self.delete_buffer.snapshot(self.ax.lines)  # Snapshot current plot
         while len(self.ax.lines) > 0:
             ln = self.ax.lines[-1]  # Delete last line
             self._delete_line(ln)
@@ -96,6 +137,7 @@ class AxesLineSelector:
             (AxesLineSelector): Current selection instance (``self``) with
                 selected lines deleted and moved to the deletion buffer.
         """
+        self.delete_buffer.snapshot(self.ax.lines)  # Snapshot current plot
         while len(self.line_clipboard) > 0:
             ln = self.line_clipboard.pop(0)  # Delete first line in selection
             self._delete_line(ln)
@@ -112,7 +154,7 @@ class AxesLineSelector:
 
         Returns:
             (AxesLineSelector): Current selection instance (``self``) with
-                deleted lines added to the :attr:`deleted_lines` attribute.
+                deleted lines added to the :attr:`delete_buffer` attribute.
 
         Note:
             The best way to determine indices for lines of interest is to rely
@@ -139,12 +181,16 @@ class AxesLineSelector:
         """
         if len(inds) < 1:
             raise ValueError('At least one or more indices should be provided')
+        
+        # Store a snapshot of current axes lines
+        self.delete_buffer.snapshot(self.ax.lines)
+        
+        # Delete lines
         new_lines = []
         for i, l in enumerate(self.ax.lines):
             if i not in inds:
                 new_lines.append(l)
             else:
-                self.deleted_lines.append(l)
                 print(f'Deleted line: {l}')
         self.ax.lines = new_lines
         self.redraw()
@@ -154,7 +200,6 @@ class AxesLineSelector:
         if line in self.ax.lines:
             self.ax.lines.remove(line)
             print(f'Deleted line: {line}')
-            self.deleted_lines.append(line)
         else:
             print(f'Line: {line} was not in self.ax.lines. Skipped deletion')
         self.redraw()  # Update plot with deletion
@@ -163,8 +208,8 @@ class AxesLineSelector:
         """Matplotlib event callback to bind to Line2D Artists for interactive
         deletion of lines in the plot-window"""
         sel_line = event.artist
+        self.delete_buffer.snapshot(self.ax.lines)  # Snapshot current plot
         self._delete_line(sel_line)
-        # self._refresh_plot()  # Update plot with deletion
 
     def undo_last_delete(self):
         """
@@ -173,23 +218,24 @@ class AxesLineSelector:
         Returns:
             (AxesLineSelector): Current selection instance (``self``)
         """
-        if len(self.deleted_lines) == 0:
+        if len(self.delete_buffer) == 0:
             print('No line deletions to undo!')
-        self.ax.lines.append(self.deleted_lines.pop())
-        self.redraw()  # Update plot with line
+        else:
+            self.ax.lines = self.delete_buffer.rewind()
+            self.redraw()
         return self
 
     def undo_all_delete(self):
         """
-        Restore all deleted lines that were stored in the ``self.deleted_lines``
-        buffer. Note: Order of restored line-traces may differ from original
-        ordering. See :meth:`~AxesLineSelector.reorder_lines` method
+        Restore all deleted lines that were stored in the ``self.delete_buffer``
+        buffer.
         
         Returns:
             (AxesLineSelector): Current selection instance (``self``)
         """
-        for i in range(len(self.deleted_lines)):
-            self.undo_last_delete()
+        for _ in range(len(self.delete_buffer)):
+            self.ax.lines = self.delete_buffer.rewind()
+        self.redraw()
         return self
 
     def reorder_lines(self, order):
@@ -366,7 +412,6 @@ class AxesLineSelector:
         self.line_clipboard = []
         return self
 
-    # TODO: Make this return a new AxesSelection object with pasted lines selected
     def paste_selection(self, ax):
         """
         Paste a copy of all lines in the internal :attr:`lines_clipboard`
@@ -499,11 +544,11 @@ class AxesLineSelector:
 
     def __repr__(self):
         clipboard = pformat([f'{i}: {str(ln)}' for i, ln in enumerate(self.line_clipboard)]).replace('\n', '\n\t\t')
-        deleted = pformat([str(ln) for ln in self.deleted_lines]).replace('\n', '\n\t\t')
+        # deleted = pformat([str(ln) for ln in self.deleted_lines]).replace('\n', '\n\t\t')
         lines = pformat([f'{i}: {str(ln)}' for i, ln in enumerate(self.ax.lines)]).replace('\n', '\n\t\t')
         return f"{self.__class__.__name__} (\n" \
                f"\tax: {self.ax.__repr__()}\n" \
                f"\tis_interactive: {self.cid is not None}\n" \
                f"\tlines: {lines}\n" \
                f"\tclipboard: {clipboard}\n" \
-               f"\tdeleted buffer: {deleted}\n)"
+               f"\tdeletion snapshot length: {len(self.delete_buffer)}\n)"
